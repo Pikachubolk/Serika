@@ -1,0 +1,6 @@
+aiohttp
+aiosignal
+discord.py
+google-cloud-aiplatform
+asyncio
+
