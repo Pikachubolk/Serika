@@ -3,7 +3,6 @@ import os
 from datetime import datetime
 from vertexai.preview.generative_models import GenerativeModel, ResponseBlockedError, Part
 from vertexai.preview.generative_models import HarmCategory, HarmBlockThreshold
-import aiohttp
 
 DISCORD_BOT_TOKEN = os.getenv('DISCORD_BOT_TOKEN')
 
@@ -54,13 +53,6 @@ class MyBot(discord.Client):
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         return f"TIME:({timestamp}) USER ID:{message.author.id} USER NAME:{message.author.display_name} MESSAGE: {message.content}"
 
-    async def download_attachment(self, attachment):
-        async with aiohttp.ClientSession() as session:
-            async with session.get(attachment.url) as resp:
-                if resp.status == 200:
-                    return await resp.read()
-        return None
-
     async def on_message(self, message):
         if message.author == self.user:
             return
@@ -81,13 +73,12 @@ class MyBot(discord.Client):
 
             for attachment in message.attachments:
                 if any(attachment.filename.lower().endswith(ext) for ext in ['.jpg', '.jpeg', '.png', '.gif', '.mp4']):
-                    file_bytes = await self.download_attachment(attachment)
-                    if file_bytes:
-                        parts.append(Part(file_bytes=file_bytes, mime_type=attachment.content_type))
-
+                    part = Part.from_uri(attachment.url, mime_type=attachment.content_type)
+                    parts.append(part)
 
             async with message.channel.typing():
                 try:
+                    # Adjust the API call to handle multiple parts
                     response = session['chat'].send_message(
                         parts,
                         generation_config=generation_config,
