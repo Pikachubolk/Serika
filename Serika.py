@@ -9,6 +9,19 @@ DISCORD_BOT_TOKEN = os.getenv('DISCORD_BOT_TOKEN')
 intents = discord.Intents.default()
 intents.messages = True
 
+generation_config = {
+    "max_output_tokens": 300,
+    "temperature": 0.9,
+    "top_p": 1,
+}
+
+safety_settings = {
+    "harm_category_hate_speech": "block_only_high",
+    "harm_category_dangerous_content": "block_only_high",
+    "harm_category_sexually_explicit": "block_only_high",
+    "harm_category_harassment": "block_only_high",
+}
+
 class MyBot(discord.Client):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs, intents=intents)
@@ -52,21 +65,25 @@ class MyBot(discord.Client):
 
         if session['first_message']:
             initial_prompt = self.load_initial_prompt()
-            formatted_message = f"{initial_prompt}\n\n{formatted_message}"
+            formatted_message = f"{initial_prompt}\n\n{formatted_message}\n\n\nYOUR RESPONSE:"
             session['first_message'] = False
 
         async with message.channel.typing():
             try:
-                # Assuming send_message is a synchronous call
-                response = session['chat'].send_message(formatted_message)
-                if response.text.strip():  # Check if the response is not empty
-                    await message.channel.send("YOUR RESPONSE:\n" + response.text)
+                response = session['chat'].send_message(
+                    formatted_message,
+                    generation_config=generation_config,
+                    safety_settings=safety_settings
+                )
+                if response.text.strip():
+                    await message.channel.send(response.text)
                 else:
                     await message.channel.send("I'm not sure how to respond to that.")
             except ResponseBlockedError as e:
                 print(f"Response was blocked: {e}")
             except Exception as e:
                 print(f"Error in on_message: {e}")
+
 
 
 bot = MyBot()
