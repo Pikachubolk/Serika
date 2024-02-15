@@ -57,8 +57,9 @@ class MyBot(discord.Client):
 
         async with message.channel.typing():
             try:
-                response = await session['chat'].send_message(formatted_message)
-                if response.text.strip():
+                # Assuming send_message is a synchronous call
+                response = session['chat'].send_message(formatted_message)
+                if response.text.strip():  # Check if the response is not empty
                     await message.channel.send("YOUR RESPONSE:\n" + response.text)
                 else:
                     await message.channel.send("I'm not sure how to respond to that.")
@@ -66,6 +67,7 @@ class MyBot(discord.Client):
                 print(f"Response was blocked: {e}")
             except Exception as e:
                 print(f"Error in on_message: {e}")
+
 
 bot = MyBot()
 bot.run(DISCORD_BOT_TOKEN)
