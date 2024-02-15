@@ -12,7 +12,7 @@ intents.messages = True
 
 generation_config = {
     "max_output_tokens": 300,
-    "temperature": 0.9,
+    "temperature": 0.7,
     "top_p": 1,
 }
 
@@ -55,7 +55,7 @@ class MyBot(discord.Client):
 
     def format_message(self, message):
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        return f"({timestamp}) {message.author.display_name}: {message.content}"
+        return f"TIME:({timestamp}) THE USERS NAME:{message.author.display_name} THE USERS CURRENT QUESTION/MESSAGE: {message.content}"
 
     async def on_message(self, message):
         if message.author == self.user:
