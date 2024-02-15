@@ -30,9 +30,9 @@ class MyBot(discord.Client):
         super().__init__(*args, **kwargs, intents=intents)
         self.model = GenerativeModel("gemini-pro-vision")
         self.sessions = {}
-        storage_client = storage.Client()
-        bucket_name = 'serika-images'
-        bucket = storage_client.bucket(bucket_name)
+        self.storage_client = storage.Client()
+        self.bucket_name = 'serika-images'
+        self.bucket = self.storage_client.bucket(self.bucket_name)
 
     async def on_ready(self):
         print(f'Logged in as {self.user}')
@@ -59,14 +59,14 @@ class MyBot(discord.Client):
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         return f"TIME:({timestamp}) USER ID:{message.author.id} USER NAME:{message.author.display_name} MESSAGE: {message.content}"
     
-    async def upload_to_gcs(attachment):
+    async def upload_to_gcs(self, attachment):
         async with aiohttp.ClientSession() as session:
             async with session.get(attachment.url) as resp:
                 if resp.status == 200:
                     data = await resp.read()
-                    blob = bucket.blob(attachment.filename)
+                    blob = self.bucket.blob(attachment.filename)
                     blob.upload_from_string(data, content_type=attachment.content_type)
-                    return f"gs://{bucket_name}/{attachment.filename}"
+                    return f"gs://{self.bucket_name}/{attachment.filename}"
         return None
 
     async def on_message(self, message):
