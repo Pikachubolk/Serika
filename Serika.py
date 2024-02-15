@@ -1,8 +1,9 @@
 import discord
 import os
 from datetime import datetime
-from vertexai.preview.generative_models import GenerativeModel, ResponseBlockedError
+from vertexai.preview.generative_models import GenerativeModel, ResponseBlockedError, Part
 from vertexai.preview.generative_models import HarmCategory, HarmBlockThreshold
+import aiohttp
 
 DISCORD_BOT_TOKEN = os.getenv('DISCORD_BOT_TOKEN')
 
@@ -53,6 +54,13 @@ class MyBot(discord.Client):
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         return f"TIME:({timestamp}) USER ID:{message.author.id} USER NAME:{message.author.display_name} MESSAGE: {message.content}"
 
+    async def download_attachment(self, attachment):
+        async with aiohttp.ClientSession() as session:
+            async with session.get(attachment.url) as resp:
+                if resp.status == 200:
+                    return await resp.read()
+        return None
+
     async def on_message(self, message):
         if message.author == self.user:
             return
@@ -69,10 +77,19 @@ class MyBot(discord.Client):
                 formatted_message = f"{session['initial_prompt']}\n\n{formatted_message}\n\n\nYOUR RESPONSE:"
                 session['first_message'] = False
 
+            parts = [formatted_message]
+
+            # Handle attachments (images/videos)
+            for attachment in message.attachments:
+                if any(attachment.filename.lower().endswith(ext) for ext in ['.jpg', '.jpeg', '.png', '.gif', '.mp4']):
+                    file_bytes = await self.download_attachment(attachment)
+                    if file_bytes:
+                        parts.append(Part(content=file_bytes, mime_type=attachment.content_type))
+
             async with message.channel.typing():
                 try:
                     response = session['chat'].send_message(
-                        formatted_message,
+                        parts,
                         generation_config=generation_config,
                         safety_settings=safety_settings
                     )
