@@ -16,16 +16,28 @@ class MyBot(discord.Client):
     async def on_ready(self):
         print(f'Logged in as {self.user}')
 
+    def load_initial_prompt(self):
+        try:
+            with open('prompt.txt', 'r', encoding='utf-8') as file:
+                return file.read().strip()
+        except FileNotFoundError:
+            print("prompt.txt file not found.")
+            return ""
+
     async def ensure_chat_session(self, session_id):
         if session_id not in self.sessions:
-            self.sessions[session_id] = self.model.start_chat()
+            initial_prompt = self.load_initial_prompt()
+            chat = self.model.start_chat()
+            if initial_prompt:
+                chat.send_message(initial_prompt)
+            self.sessions[session_id] = chat
         return self.sessions[session_id]
 
     async def on_message(self, message):
-        if message.author == self.user:
+        if message.author == self.user or not message.content:
             return
 
-        session_id = message.channel.id  # Use channel ID for session management
+        session_id = message.channel.id
         chat = await self.ensure_chat_session(session_id)
 
         async with message.channel.typing():
