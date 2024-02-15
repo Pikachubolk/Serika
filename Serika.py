@@ -1,14 +1,10 @@
 import discord
 import os
-from dotenv import load_dotenv
 from datetime import datetime
-from concurrent.futures import ThreadPoolExecutor
 import asyncio
-from vertexai.preview.generative_models import GenerativeModel
-from google.cloud import aiplatform
+from vertexai.preview.generative_models import GenerativeModel, HarmBlockThreshold, HarmCategory
+import vertexai.preview.generative_models as generative_models
 
-
-load_dotenv()
 DISCORD_BOT_TOKEN = os.getenv('DISCORD_BOT_TOKEN')
 
 intents = discord.Intents.default()
@@ -17,9 +13,8 @@ intents.messages = True
 class MyBot(discord.Client):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs, intents=intents)
-        self.executor = ThreadPoolExecutor(max_workers=1)
-        self.model = GenerativeModel("gemini-pro")
         self.chat_history = []
+        self.model = GenerativeModel("gemini-pro-vision")  # Initialize the model once to reuse
 
     async def on_ready(self):
         print(f'Logged in as {self.user}')
@@ -35,6 +30,29 @@ class MyBot(discord.Client):
     def format_chat_history(self):
         return "\n".join(self.chat_history)
 
+    async def generate_response(self, prompt):
+        conversation_history = self.format_chat_history()
+        full_prompt = f"{prompt}\n\nConversation History:\n{conversation_history}\n\nBot (YOU):"
+        
+        responses = self.model.generate_content(
+            full_prompt,
+            generation_config={
+                "max_output_tokens": 2048,
+                "temperature": 0.7,
+                "top_p": 1,
+                "top_k": 32
+            },
+            safety_settings={
+                HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_ONLY_HIGH,
+                HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_ONLY_HIGH,
+                HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold.BLOCK_ONLY_HIGH,
+                HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_ONLY_HIGH,
+            },
+            stream=True,
+        )
+        response_text = next(responses).text  # Assuming synchronous call
+        return response_text
+
     async def on_message(self, message):
         if message.author == self.user:
             return
@@ -42,18 +60,9 @@ class MyBot(discord.Client):
         self.append_to_history(message.author.display_name, message.content)
 
         base_prompt = self.load_prompt()
-        conversation_history = self.format_chat_history()
-        full_prompt = f"{base_prompt}\n\nConversation History:\n{conversation_history}\n\n{message.author.display_name} (USER):\n{message.content}\n\nBot (YOU):"
-
-        async def get_gemini_response(prompt):
-            chat = self.model.start_chat()
-            responses = chat.send_message(prompt, stream=True)
-            response_text = next(responses).text
-            return response_text
-
-
+        
         try:
-            response_message = await asyncio.get_event_loop().run_in_executor(self.executor, get_gemini_response, full_prompt)
+            response_message = await self.generate_response(base_prompt)
             self.append_to_history("Bot (YOU)", response_message)
             await message.channel.send(response_message)
         except Exception as e:
