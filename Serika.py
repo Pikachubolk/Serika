@@ -3,6 +3,7 @@ import os
 import random
 from datetime import datetime
 from vertexai.preview.generative_models import GenerativeModel, ResponseBlockedError
+from vertexai.preview.generative_models import HarmCategory, HarmBlockThreshold
 
 DISCORD_BOT_TOKEN = os.getenv('DISCORD_BOT_TOKEN')
 
@@ -15,12 +16,14 @@ generation_config = {
     "top_p": 1,
 }
 
+
 safety_settings = {
-    "harm_category_hate_speech": "block_only_high",
-    "harm_category_dangerous_content": "block_only_high",
-    "harm_category_sexually_explicit": "block_only_high",
-    "harm_category_harassment": "block_only_high",
+    HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_ONLY_HIGH,
+    HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_ONLY_HIGH,
+    HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold.BLOCK_ONLY_HIGH,
+    HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_ONLY_HIGH,
 }
+
 
 class MyBot(discord.Client):
     def __init__(self, *args, **kwargs):
