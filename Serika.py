@@ -32,7 +32,7 @@ class MyBot(discord.Client):
 
     async def generate_response(self, prompt):
         conversation_history = self.format_chat_history()
-        full_prompt = f"{prompt}\n\nConversation History:\n{conversation_history}\n\nBot (YOU):"
+        full_prompt = f"{prompt}\n\nConversation History:\n{conversation_history}\n\nSerika (YOU):"
         
         responses = self.model.generate_content(
             full_prompt,
@@ -63,7 +63,7 @@ class MyBot(discord.Client):
         
         try:
             response_message = await self.generate_response(base_prompt)
-            self.append_to_history("Bot (YOU)", response_message)
+            self.append_to_history("Serika (YOU)", response_message)
             await message.channel.send(response_message)
         except Exception as e:
             print(f"Error: {e}")
