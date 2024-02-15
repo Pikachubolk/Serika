@@ -1,10 +1,8 @@
 import discord
 import os
 from datetime import datetime
-from vertexai.preview.generative_models import GenerativeModel, ResponseBlockedError, Part
+from vertexai.preview.generative_models import GenerativeModel, ResponseBlockedError
 from vertexai.preview.generative_models import HarmCategory, HarmBlockThreshold
-from google.cloud import storage
-import aiohttp
 
 DISCORD_BOT_TOKEN = os.getenv('DISCORD_BOT_TOKEN')
 
@@ -24,15 +22,11 @@ safety_settings = {
     HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_ONLY_HIGH,
 }
 
-
 class MyBot(discord.Client):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs, intents=intents)
-        self.model = GenerativeModel("gemini-1.0-pro-vision")
+        self.model = GenerativeModel("gemini-pro-vision")
         self.sessions = {}
-        self.storage_client = storage.Client()
-        self.bucket_name = 'serika-images'
-        self.bucket = self.storage_client.bucket(self.bucket_name)
 
     async def on_ready(self):
         print(f'Logged in as {self.user}')
@@ -58,16 +52,6 @@ class MyBot(discord.Client):
     def format_message(self, message):
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         return f"TIME:({timestamp}) USER ID:{message.author.id} USER NAME:{message.author.display_name} MESSAGE: {message.content}"
-    
-    async def upload_to_gcs(self, attachment):
-        async with aiohttp.ClientSession() as session:
-            async with session.get(attachment.url) as resp:
-                if resp.status == 200:
-                    data = await resp.read()
-                    blob = self.bucket.blob(attachment.filename)
-                    blob.upload_from_string(data, content_type=attachment.content_type)
-                    return f"gs://{self.bucket_name}/{attachment.filename}"
-        return None
 
     async def on_message(self, message):
         if message.author == self.user:
@@ -85,19 +69,10 @@ class MyBot(discord.Client):
                 formatted_message = f"{session['initial_prompt']}\n\n{formatted_message}\n\n\nYOUR RESPONSE:"
                 session['first_message'] = False
 
-            parts = [formatted_message]
-
-            for attachment in message.attachments:
-                if any(attachment.filename.lower().endswith(ext) for ext in ['.jpg', '.jpeg', '.png', '.gif', '.mp4']):
-                    gcs_uri = await self.upload_to_gcs(attachment)
-                    if gcs_uri:
-                        part = Part.from_uri(gcs_uri, mime_type=attachment.content_type)
-                        parts.append(part)
-
             async with message.channel.typing():
                 try:
                     response = session['chat'].send_message(
-                        parts,
+                        formatted_message,
                         generation_config=generation_config,
                         safety_settings=safety_settings
                     )
@@ -106,9 +81,9 @@ class MyBot(discord.Client):
                     else:
                         await message.channel.send("I'm not sure how to respond to that.")
                 except ResponseBlockedError as e:
-                    await message.channel.send(f"Response was blocked: {e}")
+                    print(f"Response was blocked: {e}")
                 except Exception as e:
-                    await message.channel.send(f"Error in on_message: {e}")
+                    print(f"Error in on_message: {e}")
 
 bot = MyBot()
 bot.run(DISCORD_BOT_TOKEN)
