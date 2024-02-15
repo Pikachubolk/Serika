@@ -16,14 +16,12 @@ generation_config = {
     "top_p": 1,
 }
 
-
 safety_settings = {
     HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_ONLY_HIGH,
     HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_ONLY_HIGH,
     HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold.BLOCK_ONLY_HIGH,
     HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_ONLY_HIGH,
 }
-
 
 class MyBot(discord.Client):
     def __init__(self, *args, **kwargs):
@@ -43,14 +41,13 @@ class MyBot(discord.Client):
             return ""
 
     def generate_session_id(self, channel_id):
-        random_id = random.randint(10000, 99999)
-        return f"{channel_id}-{random_id}"
+        return str(channel_id)
 
     async def ensure_chat_session(self, session_id):
         if session_id not in self.sessions:
             initial_prompt = self.load_initial_prompt()
             chat = self.model.start_chat()
-            self.sessions[session_id] = {'chat': chat, 'first_message': True}
+            self.sessions[session_id] = {'chat': chat, 'first_message': True, 'initial_prompt': initial_prompt}
         return self.sessions[session_id]
 
     def format_message(self, message):
@@ -58,17 +55,22 @@ class MyBot(discord.Client):
         return f"TIME:({timestamp}) THE USERS NAME:{message.author.display_name} THE USERS CURRENT QUESTION/MESSAGE: {message.content}"
 
     async def on_message(self, message):
-        if message.author == self.user:
+        if message.author == self.user or not message.content:
+            return
+
+        if message.content.startswith('s!reset'):
+            session_id = self.generate_session_id(message.channel.id)
+            if session_id in self.sessions:
+                del self.sessions[session_id]
+            await message.channel.send("Chat session has been reset.")
             return
 
         session_id = self.generate_session_id(message.channel.id)
         session = await self.ensure_chat_session(session_id)
 
         formatted_message = self.format_message(message)
-
         if session['first_message']:
-            initial_prompt = self.load_initial_prompt()
-            formatted_message = f"{initial_prompt}\n\n{formatted_message}\n\n\nYOUR RESPONSE:"
+            formatted_message = f"{session['initial_prompt']}\n\n{formatted_message}\n\n\nYOUR RESPONSE:"
             session['first_message'] = False
 
         async with message.channel.typing():
@@ -86,8 +88,6 @@ class MyBot(discord.Client):
                 print(f"Response was blocked: {e}")
             except Exception as e:
                 print(f"Error in on_message: {e}")
-
-
 
 bot = MyBot()
 bot.run(DISCORD_BOT_TOKEN)
