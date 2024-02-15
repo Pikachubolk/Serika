@@ -11,11 +11,6 @@ DISCORD_BOT_TOKEN = os.getenv('DISCORD_BOT_TOKEN')
 intents = discord.Intents.default()
 intents.messages = True
 
-# Initialize Google Cloud Storage client
-storage_client = storage.Client()
-bucket_name = 'serika-images'
-bucket = storage_client.bucket(bucket_name)
-
 generation_config = {
     "max_output_tokens": 300,
     "temperature": 0.7,
@@ -35,6 +30,9 @@ class MyBot(discord.Client):
         super().__init__(*args, **kwargs, intents=intents)
         self.model = GenerativeModel("gemini-pro-vision")
         self.sessions = {}
+        storage_client = storage.Client()
+        bucket_name = 'serika-images'
+        bucket = storage_client.bucket(bucket_name)
 
     async def on_ready(self):
         print(f'Logged in as {self.user}')
