@@ -79,12 +79,12 @@ class MyBot(discord.Client):
 
             parts = [formatted_message]
 
-            # Handle attachments (images/videos)
             for attachment in message.attachments:
                 if any(attachment.filename.lower().endswith(ext) for ext in ['.jpg', '.jpeg', '.png', '.gif', '.mp4']):
                     file_bytes = await self.download_attachment(attachment)
                     if file_bytes:
-                        parts.append(Part(content=file_bytes, mime_type=attachment.content_type))
+                        parts.append(Part(file_bytes=file_bytes, mime_type=attachment.content_type))
+
 
             async with message.channel.typing():
                 try:
