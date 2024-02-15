@@ -26,7 +26,7 @@ safety_settings = {
 class MyBot(discord.Client):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs, intents=intents)
-        self.model = GenerativeModel("gemini-1.0-pro-vision")
+        self.model = GenerativeModel("gemini-pro-vision")
         self.sessions = {}
 
     async def on_ready(self):
