@@ -48,7 +48,9 @@ class MyBot(discord.Client):
         async def get_gemini_response(prompt):
             chat = self.model.start_chat()
             responses = chat.send_message(prompt, stream=True)
-            return next(responses).text
+            response_text = next(responses).text
+            return response_text
+
 
         try:
             response_message = await asyncio.get_event_loop().run_in_executor(self.executor, get_gemini_response, full_prompt)
