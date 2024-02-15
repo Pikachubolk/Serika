@@ -1,7 +1,8 @@
 import discord
 import os
 import random
-from vertexai.preview.generative_models import GenerativeModel
+from datetime import datetime
+from vertexai.preview.generative_models import GenerativeModel, ResponseBlockedError
 
 DISCORD_BOT_TOKEN = os.getenv('DISCORD_BOT_TOKEN')
 
@@ -33,22 +34,36 @@ class MyBot(discord.Client):
         if session_id not in self.sessions:
             initial_prompt = self.load_initial_prompt()
             chat = self.model.start_chat()
-            if initial_prompt:
-                chat.send_message(initial_prompt)
-            self.sessions[session_id] = chat
+            self.sessions[session_id] = {'chat': chat, 'first_message': True}
         return self.sessions[session_id]
+
+    def format_message(self, message):
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        return f"({timestamp}) {message.author.display_name}: {message.content}"
 
     async def on_message(self, message):
         if message.author == self.user:
             return
 
         session_id = self.generate_session_id(message.channel.id)
-        chat = await self.ensure_chat_session(session_id)
+        session = await self.ensure_chat_session(session_id)
+
+        formatted_message = self.format_message(message)
+
+        if session['first_message']:
+            initial_prompt = self.load_initial_prompt()
+            formatted_message = f"{initial_prompt}\n\n{formatted_message}"
+            session['first_message'] = False
 
         async with message.channel.typing():
             try:
-                response = chat.send_message(message.content)
-                await message.channel.send(response.text)
+                response = await session['chat'].send_message(formatted_message)
+                if response.text.strip():
+                    await message.channel.send("YOUR RESPONSE:\n" + response.text)
+                else:
+                    await message.channel.send("I'm not sure how to respond to that.")
+            except ResponseBlockedError as e:
+                print(f"Response was blocked: {e}")
             except Exception as e:
                 print(f"Error in on_message: {e}")
 
