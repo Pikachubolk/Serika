@@ -3,11 +3,18 @@ import os
 from datetime import datetime
 from vertexai.preview.generative_models import GenerativeModel, ResponseBlockedError, Part
 from vertexai.preview.generative_models import HarmCategory, HarmBlockThreshold
+from google.cloud import storage
+import aiohttp
 
 DISCORD_BOT_TOKEN = os.getenv('DISCORD_BOT_TOKEN')
 
 intents = discord.Intents.default()
 intents.messages = True
+
+# Initialize Google Cloud Storage client
+storage_client = storage.Client()
+bucket_name = 'serika-images'
+bucket = storage_client.bucket(bucket_name)
 
 generation_config = {
     "max_output_tokens": 300,
@@ -21,6 +28,7 @@ safety_settings = {
     HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold.BLOCK_ONLY_HIGH,
     HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_ONLY_HIGH,
 }
+
 
 class MyBot(discord.Client):
     def __init__(self, *args, **kwargs):
@@ -52,6 +60,16 @@ class MyBot(discord.Client):
     def format_message(self, message):
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         return f"TIME:({timestamp}) USER ID:{message.author.id} USER NAME:{message.author.display_name} MESSAGE: {message.content}"
+    
+    async def upload_to_gcs(attachment):
+        async with aiohttp.ClientSession() as session:
+            async with session.get(attachment.url) as resp:
+                if resp.status == 200:
+                    data = await resp.read()
+                    blob = bucket.blob(attachment.filename)
+                    blob.upload_from_string(data, content_type=attachment.content_type)
+                    return f"gs://{bucket_name}/{attachment.filename}"
+        return None
 
     async def on_message(self, message):
         if message.author == self.user:
@@ -73,12 +91,13 @@ class MyBot(discord.Client):
 
             for attachment in message.attachments:
                 if any(attachment.filename.lower().endswith(ext) for ext in ['.jpg', '.jpeg', '.png', '.gif', '.mp4']):
-                    part = Part.from_uri(attachment.url, mime_type=attachment.content_type)
-                    parts.append(part)
+                    gcs_uri = await self.upload_to_gcs(attachment)
+                    if gcs_uri:
+                        part = Part.from_uri(gcs_uri, mime_type=attachment.content_type)
+                        parts.append(part)
 
             async with message.channel.typing():
                 try:
-                    # Adjust the API call to handle multiple parts
                     response = session['chat'].send_message(
                         parts,
                         generation_config=generation_config,
@@ -89,9 +108,9 @@ class MyBot(discord.Client):
                     else:
                         await message.channel.send("I'm not sure how to respond to that.")
                 except ResponseBlockedError as e:
-                    print(f"Response was blocked: {e}")
+                    await message.channel.send(f"Response was blocked: {e}")
                 except Exception as e:
-                    print(f"Error in on_message: {e}")
+                    await message.channel.send(f"Error in on_message: {e}")
 
 bot = MyBot()
 bot.run(DISCORD_BOT_TOKEN)
