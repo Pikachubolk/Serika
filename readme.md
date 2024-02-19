@@ -4,7 +4,7 @@
 ### To setup within a Virtual Enviroment check the optional sub category
 
 First you must install all the required packages for the project, you can do so by running the following.
-(Make sure you have PIP installed, if you have not then you can do so by following the tutorial [here](https://wiki.python.org/moin/BeginnersGuide/Download))
+```(Make sure you have PIP installed, if you have not then you can do so by following the tutorial [here](https://wiki.python.org/moin/BeginnersGuide/Download))```
 ```
 pip install -r ./requirements.txt
 ```
