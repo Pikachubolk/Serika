@@ -9,9 +9,9 @@ First you must install all the required packages for the project, you can do so 
 pip install -r ./requirements.txt
 ```
 
-Setup up your Google Cloud Credentials by following the instructions [here](https://cloud.google.com/sdk/docs/initializing)
+Setup up your Makersuite Credentials by following the instructions [here](https://ai.google.dev/tutorials/python_quickstart)
 
-Want to setup using Makersuite(Google AI studio)? click [here](/Makersuite/readme.md)
+Want to setup using VetexAI? click [here](/readme.md)
 
 
 ### Optional
