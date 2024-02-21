@@ -18,7 +18,7 @@ Want to setup using Makersuite(Google AI studio)? click [here](/Makersuite/readm
 
 Setup with Virtual Enviroment
 
-Install These packages:
+Install These packages (on linux):
 ```sh
 sudo apt-get install python3-pip python3-venv
 ```
