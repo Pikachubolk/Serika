@@ -3,4 +3,5 @@ aiosignal
 discord.py
 google-cloud-aiplatform
 asyncio
+google-generativeai
 
