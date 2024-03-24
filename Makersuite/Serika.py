@@ -21,7 +21,7 @@ SPOTIFY_CLIENT_SECRET = os.getenv('SPOTIFY_CLIENT_SECRET')
 genai.configure(api_key=GOOGLE_API_KEY)
 MONGO_URI = os.getenv('MONGO_URI')
 
-DISCORD_BOT_TOKEN = os.getenv('DISCORD_BOT_TOKEN')
+DISCORD_BOT_TOKEN = os.getenv('AYANOKOJI')
 
 intents = discord.Intents.default()
 intents.messages = True
@@ -42,8 +42,9 @@ class MyBot(discord.Client):
 
     def load_initial_prompt(self):
         try:
-            with open('secretprompt.txt', 'r', encoding='utf-8') as file:
+            with open('Makersuite/prompt.txt', 'r', encoding='utf-8') as file:
                 return file.read().strip()
+            
         except FileNotFoundError:
             return ""
 
