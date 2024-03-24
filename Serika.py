@@ -13,7 +13,7 @@ import re
 
 # Load environment variables
 load_dotenv()
-os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = './gen-lang-client-0092326929-c36ba0ed62fd.json'
+os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = './YOURJSONKEYFILE.json'
 
 # API keys and client tokens
 DISCORD_BOT_TOKEN = os.getenv('DISCORD_BOT_TOKEN')
