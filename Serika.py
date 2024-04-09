@@ -10,11 +10,10 @@ import base64
 from dotenv import load_dotenv
 from pymongo import MongoClient
 import re
-import aiohttp
 
 # Load environment variables
 load_dotenv()
-os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = './GCLOUD.json'
+os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = './gen-lang-client-0092326929-c36ba0ed62fd.json'
 
 # API keys and client tokens
 DISCORD_BOT_TOKEN = os.getenv('DISCORD_BOT_TOKEN')
@@ -46,7 +45,6 @@ class MyBot(discord.Client):
         self.mongo_client = MongoClient(MONGO_URI)
         self.db = self.mongo_client['Serika']
         self.chats_collection = self.db['chats']
-        self.http_session = aiohttp.ClientSession() 
 
     async def on_ready(self):
         print(f'Logged in as {self.user}')
@@ -81,17 +79,17 @@ class MyBot(discord.Client):
         youtube_url_match = re.search(r'(https?://(?:www\.)?youtube\.com/watch\?v=|https?://youtu\.be/)([\w-]+)', message.content)
         if youtube_url_match:
             video_id = youtube_url_match.group(2)
-            youtube_info = await self.get_youtube_video_info(video_id)
+            youtube_info = self.get_youtube_video_info(video_id)
 
         spotify_url_match = re.search(r'https?://open.spotify.com/track/([a-zA-Z0-9]+)', message.content)
         if spotify_url_match:
             track_id = spotify_url_match.group(1)
-            spotify_info = await self.get_spotify_track_info(track_id)
+            spotify_info = self.get_spotify_track_info(track_id)
 
         general_url_match = re.search(r'https?://[^\s]+', message.content)
         if general_url_match and not youtube_url_match and not spotify_url_match:
             url = general_url_match.group(0)
-            webpage_info = await self.get_webpage_content(url)
+            webpage_info = self.get_webpage_content(url)
 
         additional_info = "\n".join(filter(None, [youtube_info, spotify_info, webpage_info]))
         if additional_info:
@@ -111,7 +109,7 @@ class MyBot(discord.Client):
 
             async with message.channel.typing():
                 try:
-                    response = await session['chat'].send_message(
+                    response = session['chat'].send_message(
                         formatted_message,
                         generation_config=generation_config,
                         safety_settings=safety_settings
@@ -138,65 +136,69 @@ class MyBot(discord.Client):
         chat_data = {'channel_id': channel_id, 'isActive': True}
         return self.chats_collection.insert_one(chat_data).inserted_id     
 
-    async def get_youtube_video_info(self, video_id):
-        async with self.http_session.get(f"https://www.googleapis.com/youtube/v3/videos?id={video_id}&key={YOUTUBE_API_KEY}&part=snippet,statistics") as response:
-            if response.status == 200:
-                data = await response.json()
-                items = data.get('items', [])
-                if items:
-                    snippet = items[0]['snippet']
-                    statistics = items[0]['statistics']
-                    title = snippet['title']
-                    description = snippet['description']
-                    upload_date = snippet['publishedAt']
-                    tags = snippet.get('tags', "Not available")
-                    likes = statistics.get('likeCount', "Not available")
-                    views = statistics.get('viewCount', "Not available")
-                    return f"Title: {title}, Description: {description}, Upload Date: {upload_date}, Tags: {', '.join(tags)}, Likes: {likes}, Views: {views}"
-            return None
-
-    async def get_spotify_access_token(self):
-        data = {
-            'grant_type': 'client_credentials'
-        }
-        headers = {
-            'Authorization': f'Basic {base64.b64encode(f"{SPOTIFY_CLIENT_ID}:{SPOTIFY_CLIENT_SECRET}".encode()).decode()}'
-        }
-        async with self.http_session.post('https://accounts.spotify.com/api/token', data=data, headers=headers) as response:
-            if response.status == 200:
-                data = await response.json()
-                return data.get('access_token')
+    def get_youtube_video_info(self, video_id):
+        """Fetches video information from YouTube API."""
+        youtube_api_url = f"https://www.googleapis.com/youtube/v3/videos?id={video_id}&key={YOUTUBE_API_KEY}&part=snippet,statistics"
+        response = requests.get(youtube_api_url)
+        if response.status_code == 200:
+            data = response.json()
+            items = data.get('items', [])
+            if items:
+                snippet = items[0]['snippet']
+                statistics = items[0]['statistics']
+                title = snippet['title']
+                description = snippet['description']
+                upload_date = snippet['publishedAt']
+                tags = snippet.get('tags', "Not available")
+                likes = statistics.get('likeCount', "Not available")
+                views = statistics.get('viewCount', "Not available")
+                return f"Title: {title}, Description: {description}, Upload Date: {upload_date}, Tags: {', '.join(tags)}, Likes: {likes}, Views: {views}"
         return None
 
-    async def get_spotify_track_info(self, track_id):
-        access_token = await self.get_spotify_access_token()
-        if access_token:
-            headers = {
-                'Authorization': f'Bearer {access_token}'
+
+    def get_spotify_access_token(self):
+        auth_response = requests.post(
+            'https://accounts.spotify.com/api/token',
+            data={
+                'grant_type': 'client_credentials'
+            },
+            headers={
+                'Authorization': f'Basic {base64.b64encode(f"{SPOTIFY_CLIENT_ID}:{SPOTIFY_CLIENT_SECRET}".encode()).decode()}'
             }
-            async with self.http_session.get(f"https://api.spotify.com/v1/tracks/{track_id}", headers=headers) as response:
-                if response.status == 200:
-                    track_info = await response.json()
-                    title = track_info['name']
-                    artists = ', '.join(artist['name'] for artist in track_info['artists'])
-                    return f"Title: {title}, Artists: {artists}"
+        )
+        if auth_response.status_code == 200:
+            return auth_response.json().get('access_token')
         return None
 
-    async def get_webpage_content(self, url):
+    def get_spotify_track_info(self, track_id):
+        access_token = self.get_spotify_access_token()
+        if access_token:
+            spotify_api_url = f"https://api.spotify.com/v1/tracks/{track_id}"
+            response = requests.get(
+                spotify_api_url,
+                headers={
+                    'Authorization': f'Bearer {access_token}'
+                }
+            )
+            if response.status_code == 200:
+                track_info = response.json()
+                title = track_info['name']
+                artists = ', '.join(artist['name'] for artist in track_info['artists'])
+                return f"Title: {title}, Artists: {artists}"
+        return None
+    
+
+    def get_webpage_content(self, url):
         try:
-            async with self.http_session.get(url) as response:
-                if response.status == 200:
-                    text = await response.text()
-                    soup = BeautifulSoup(text, 'html.parser')
-                    paragraphs = [p.get_text().strip() for p in soup.find_all('p')]
-                    return ' '.join(paragraphs)[:4000]
+            response = requests.get(url)
+            if response.status_code == 200:
+                soup = BeautifulSoup(response.text, 'html.parser')
+                paragraphs = [p.get_text().strip() for p in soup.find_all('p')]
+                text = ' '.join(paragraphs)
+                return text[:4000]
         except Exception as e:
             print(f"Error fetching webpage content: {e}")
         return None
-
-    async def close(self):
-        await super().close()
-        await self.http_session.close()
 
 
 
