@@ -13,7 +13,7 @@ import re
 
 # Load environment variables
 load_dotenv()
-os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = './YOURJSONKEYFILE.json'
+os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = './gen-lang-client-0092326929-c36ba0ed62fd.json'
 
 # API keys and client tokens
 DISCORD_BOT_TOKEN = os.getenv('DISCORD_BOT_TOKEN')
@@ -30,10 +30,10 @@ generation_config = {
     "top_p": 1,
 }
 safety_settings = {
-    HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_ONLY_HIGH,
-    HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_ONLY_HIGH,
-    HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold.BLOCK_ONLY_HIGH,
-    HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_ONLY_HIGH,
+    HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_NONE,
+    HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_NONE,
+    HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold.BLOCK_NONE,
+    HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_NONE,
 }
 intents = discord.Intents.default()
 intents.messages = True
@@ -136,69 +136,65 @@ class MyBot(discord.Client):
         chat_data = {'channel_id': channel_id, 'isActive': True}
         return self.chats_collection.insert_one(chat_data).inserted_id     
 
-    def get_youtube_video_info(self, video_id):
-        """Fetches video information from YouTube API."""
-        youtube_api_url = f"https://www.googleapis.com/youtube/v3/videos?id={video_id}&key={YOUTUBE_API_KEY}&part=snippet,statistics"
-        response = requests.get(youtube_api_url)
-        if response.status_code == 200:
-            data = response.json()
-            items = data.get('items', [])
-            if items:
-                snippet = items[0]['snippet']
-                statistics = items[0]['statistics']
-                title = snippet['title']
-                description = snippet['description']
-                upload_date = snippet['publishedAt']
-                tags = snippet.get('tags', "Not available")
-                likes = statistics.get('likeCount', "Not available")
-                views = statistics.get('viewCount', "Not available")
-                return f"Title: {title}, Description: {description}, Upload Date: {upload_date}, Tags: {', '.join(tags)}, Likes: {likes}, Views: {views}"
+    async def get_youtube_video_info(self, video_id):
+        async with self.http_session.get(f"https://www.googleapis.com/youtube/v3/videos?id={video_id}&key={YOUTUBE_API_KEY}&part=snippet,statistics") as response:
+            if response.status == 200:
+                data = await response.json()
+                items = data.get('items', [])
+                if items:
+                    snippet = items[0]['snippet']
+                    statistics = items[0]['statistics']
+                    title = snippet['title']
+                    description = snippet['description']
+                    upload_date = snippet['publishedAt']
+                    tags = snippet.get('tags', "Not available")
+                    likes = statistics.get('likeCount', "Not available")
+                    views = statistics.get('viewCount', "Not available")
+                    return f"Title: {title}, Description: {description}, Upload Date: {upload_date}, Tags: {', '.join(tags)}, Likes: {likes}, Views: {views}"
+            return None
+
+    async def get_spotify_access_token(self):
+        data = {
+            'grant_type': 'client_credentials'
+        }
+        headers = {
+            'Authorization': f'Basic {base64.b64encode(f"{SPOTIFY_CLIENT_ID}:{SPOTIFY_CLIENT_SECRET}".encode()).decode()}'
+        }
+        async with self.http_session.post('https://accounts.spotify.com/api/token', data=data, headers=headers) as response:
+            if response.status == 200:
+                data = await response.json()
+                return data.get('access_token')
         return None
 
-
-    def get_spotify_access_token(self):
-        auth_response = requests.post(
-            'https://accounts.spotify.com/api/token',
-            data={
-                'grant_type': 'client_credentials'
-            },
-            headers={
-                'Authorization': f'Basic {base64.b64encode(f"{SPOTIFY_CLIENT_ID}:{SPOTIFY_CLIENT_SECRET}".encode()).decode()}'
-            }
-        )
-        if auth_response.status_code == 200:
-            return auth_response.json().get('access_token')
-        return None
-
-    def get_spotify_track_info(self, track_id):
-        access_token = self.get_spotify_access_token()
+    async def get_spotify_track_info(self, track_id):
+        access_token = await self.get_spotify_access_token()
         if access_token:
-            spotify_api_url = f"https://api.spotify.com/v1/tracks/{track_id}"
-            response = requests.get(
-                spotify_api_url,
-                headers={
-                    'Authorization': f'Bearer {access_token}'
-                }
-            )
-            if response.status_code == 200:
-                track_info = response.json()
-                title = track_info['name']
-                artists = ', '.join(artist['name'] for artist in track_info['artists'])
-                return f"Title: {title}, Artists: {artists}"
+            headers = {
+                'Authorization': f'Bearer {access_token}'
+            }
+            async with self.http_session.get(f"https://api.spotify.com/v1/tracks/{track_id}", headers=headers) as response:
+                if response.status == 200:
+                    track_info = await response.json()
+                    title = track_info['name']
+                    artists = ', '.join(artist['name'] for artist in track_info['artists'])
+                    return f"Title: {title}, Artists: {artists}"
         return None
-    
 
-    def get_webpage_content(self, url):
+    async def get_webpage_content(self, url):
         try:
-            response = requests.get(url)
-            if response.status_code == 200:
-                soup = BeautifulSoup(response.text, 'html.parser')
-                paragraphs = [p.get_text().strip() for p in soup.find_all('p')]
-                text = ' '.join(paragraphs)
-                return text[:4000]
+            async with self.http_session.get(url) as response:
+                if response.status == 200:
+                    text = await response.text()
+                    soup = BeautifulSoup(text, 'html.parser')
+                    paragraphs = [p.get_text().strip() for p in soup.find_all('p')]
+                    return ' '.join(paragraphs)[:4000]
         except Exception as e:
             print(f"Error fetching webpage content: {e}")
         return None
+
+    async def close(self):
+        await super().close()
+        await self.http_session.close()
 
 
 
