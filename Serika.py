@@ -10,10 +10,11 @@ import base64
 from dotenv import load_dotenv
 from pymongo import MongoClient
 import re
+import aiohttp
 
 # Load environment variables
 load_dotenv()
-os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = './gen-lang-client-0092326929-c36ba0ed62fd.json'
+os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = './GCLOUD.json'
 
 # API keys and client tokens
 DISCORD_BOT_TOKEN = os.getenv('DISCORD_BOT_TOKEN')
@@ -45,6 +46,7 @@ class MyBot(discord.Client):
         self.mongo_client = MongoClient(MONGO_URI)
         self.db = self.mongo_client['Serika']
         self.chats_collection = self.db['chats']
+        self.http_session = aiohttp.ClientSession() 
 
     async def on_ready(self):
         print(f'Logged in as {self.user}')
@@ -79,17 +81,17 @@ class MyBot(discord.Client):
         youtube_url_match = re.search(r'(https?://(?:www\.)?youtube\.com/watch\?v=|https?://youtu\.be/)([\w-]+)', message.content)
         if youtube_url_match:
             video_id = youtube_url_match.group(2)
-            youtube_info = self.get_youtube_video_info(video_id)
+            youtube_info = await self.get_youtube_video_info(video_id)
 
         spotify_url_match = re.search(r'https?://open.spotify.com/track/([a-zA-Z0-9]+)', message.content)
         if spotify_url_match:
             track_id = spotify_url_match.group(1)
-            spotify_info = self.get_spotify_track_info(track_id)
+            spotify_info = await self.get_spotify_track_info(track_id)
 
         general_url_match = re.search(r'https?://[^\s]+', message.content)
         if general_url_match and not youtube_url_match and not spotify_url_match:
             url = general_url_match.group(0)
-            webpage_info = self.get_webpage_content(url)
+            webpage_info = await self.get_webpage_content(url)
 
         additional_info = "\n".join(filter(None, [youtube_info, spotify_info, webpage_info]))
         if additional_info:
@@ -109,7 +111,7 @@ class MyBot(discord.Client):
 
             async with message.channel.typing():
                 try:
-                    response = session['chat'].send_message(
+                    response = await session['chat'].send_message(
                         formatted_message,
                         generation_config=generation_config,
                         safety_settings=safety_settings
